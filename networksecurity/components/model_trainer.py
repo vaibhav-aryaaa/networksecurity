@@ -1,5 +1,5 @@
 import os,sys
-import mlflow
+import mlflow,joblib
 from networksecurity.exception.exception import NetworkSecurityException
 from networksecurity.logging.logger import logging
 
@@ -21,6 +21,9 @@ from sklearn.ensemble import (
     RandomForestClassifier
 )
 
+import dagshub
+dagshub.init(repo_owner='vaibhavarya338', repo_name='networksecurity', mlflow=True)
+
 
 class ModelTrainer:
     def __init__(self,model_trainer_config:ModelTrainerConfig,data_transformation_artifact:DataTransformationArtifact):
@@ -31,17 +34,24 @@ class ModelTrainer:
         except Exception as e:
             raise NetworkSecurityException(e,sys)
         
-    def track_mlflow(self,best_model,classificationmetric):
+    def track_mlflow(self, best_model, classification_train_metric):
+        metrics_dict = vars(classification_train_metric)
+
         with mlflow.start_run():
-            f1_score=classificationmetric.f1_score
-            precision_score=classificationmetric.precision_score
-            recall_score=classificationmetric.recall_score
-            
-            mlflow.log_metric("f1_score",f1_score)
-            mlflow.log_metric("precision_score",precision_score)
-            mlflow.log_metric("recall_score",recall_score)
-            
-            mlflow.sklearn.log_model(best_model,"model")
+
+            for metric_name, metric_value in metrics_dict.items():
+                if metric_value is None:
+                    continue
+                try:
+                    mlflow.log_metric(metric_name, float(metric_value))
+                except (TypeError, ValueError):
+                    continue
+
+            os.makedirs("artifacts", exist_ok=True)
+            model_path = os.path.join("artifacts", "best_model.pkl")
+            joblib.dump(best_model, model_path)
+
+            mlflow.log_artifact(model_path, artifact_path="model")
         
     def train_model(self,x_train,y_train,x_test,y_test):
         models={
