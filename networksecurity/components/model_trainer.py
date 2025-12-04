@@ -52,6 +52,7 @@ class ModelTrainer:
             joblib.dump(best_model, model_path)
 
             mlflow.log_artifact(model_path, artifact_path="model")
+            
         
     def train_model(self,x_train,y_train,x_test,y_test):
         models={
@@ -101,20 +102,38 @@ class ModelTrainer:
         classification_train_metric=get_classfication_score(y_true=y_train,y_pred=y_train_pred)
         
         # Track the experiments with MLFlow
-        self.track_mlflow(best_model,classification_train_metric)
-        
-        
-        y_test_pred=best_model.predict(x_test)
-        classification_test_metric=get_classfication_score(y_true=y_test,y_pred=y_test_pred)
-        
-        preprocessor=load_object(file_path=self.data_transformation_artifact.transformed_object_file_path)
-        
-        model_dir_path=os.path.dirname(self.model_train_config.trained_model_file_path)
-        os.makedirs(model_dir_path,exist_ok=True)
-        
-        
-        Network_Model=NetworkModel(preprocessor=preprocessor,model=best_model)
-        save_object(self.model_train_config.trained_model_file_path,obj=NetworkModel)
+        y_test_pred = best_model.predict(x_test)
+        classification_test_metric = get_classfication_score(
+        y_true=y_test,
+        y_pred=y_test_pred
+        )
+
+        mlflow.set_experiment("networksecurity")
+
+        with mlflow.start_run(run_name="best_model_run"):
+
+            mlflow.log_metric("train_f1", classification_train_metric.f1_score)
+            mlflow.log_metric("train_precision", classification_train_metric.precision_score)
+            mlflow.log_metric("train_recall", classification_train_metric.recall_score)
+
+            mlflow.log_metric("test_f1", classification_test_metric.f1_score)
+            mlflow.log_metric("test_precision", classification_test_metric.precision_score)
+            mlflow.log_metric("test_recall", classification_test_metric.recall_score)
+
+            preprocessor = load_object(
+                file_path=self.data_transformation_artifact.transformed_object_file_path
+            )
+
+        model_dir_path = os.path.dirname(self.model_train_config.trained_model_file_path)
+        os.makedirs(model_dir_path, exist_ok=True)
+
+        Network_Model = NetworkModel(preprocessor=preprocessor, model=best_model)
+        save_object(self.model_train_config.trained_model_file_path, obj=Network_Model)
+        mlflow.log_artifact(self.model_train_config.trained_model_file_path, artifact_path="wrapped_model")
+
+        os.makedirs("final_models", exist_ok=True)
+        save_object("final_models/model.pkl", best_model)
+        mlflow.log_artifact("final_models/model.pkl", artifact_path="raw_model")
         
         # Model Trainer Artifact
         model_trainer_artifact=ModelTrainerArtifact(trained_model_file_path=self.model_train_config.trained_model_file_path,

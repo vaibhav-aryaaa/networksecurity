@@ -10,5 +10,7 @@ pyaml
 mlflow
 joblib
 dagshub
+fastapi
+uvicorn
 
 ##-e .
