@@ -67,7 +67,7 @@ async def predict_route(request:Request,file:UploadFile=File(...)):
         print(df.iloc[0])
         y_pred=network_model.predict(df)
         print(y_pred)
-        df["predicted column"]=y_pred
+        # df["predicted column"]=y_pred
         print(df["predicted column"])
         # df['predicted_column'].replace(-1,0)
         # return df.to_json()
